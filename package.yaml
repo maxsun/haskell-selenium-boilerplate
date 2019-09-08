@@ -1,0 +1,40 @@
+library:
+  source-dirs: src
+tests:
+  selenium-example-test:
+    source-dirs: test
+    main: Spec.hs
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - selenium-example
+copyright: 2019 Max Sun
+maintainer: maxlouiesun@gmail.com
+dependencies:
+  - cmdargs >= 0.10.20
+  - array >= 0.5.3.0
+  - base >= 4.7 && < 5
+  - aeson >= 0.6.2.0
+  - webdriver <= 0.9.0.1
+  - text  <= 1.2.3.0
+  - http-types >= 0.12.3
+name: selenium-example
+version: 0.1.0.0
+extra-source-files:
+  - README.md
+author: Max Sun
+github: maxsun/selenium-example
+license: BSD3
+executables:
+  selenium-example-exe:
+    source-dirs: app
+    main: Main.hs
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+    dependencies:
+      - selenium-example
+description: Please see the README on GitHub at <https://github.com/githubuser/selenium-example#readme>
