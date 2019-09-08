@@ -1,1 +1,1 @@
-# selenium-example
+# haskell-selenium-boilerplate

@@ -3,16 +3,16 @@ services:
   seleniumServer:
     image: "selenium/standalone-chrome:latest"
     ports:
-      - "4444:4444"
+      - 4444:4444
   web:
     build: .
     depends_on:
       - seleniumServer
     command:
       [
-        "/opt/selenium-example/wait-for-it.sh",
+        "/opt/haskell-selenium-boilerplate/wait-for-it.sh",
         "seleniumServer:4444",
         "--",
-        "bin/selenium-example-exe",
+        "bin/haskell-selenium-boilerplate-exe",
         "--host=seleniumServer",
       ]

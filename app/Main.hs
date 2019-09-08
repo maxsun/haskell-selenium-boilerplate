@@ -21,10 +21,6 @@ data CmdArguments = CmdArguments {host :: String, port :: Int}
 
 cmdArguments = CmdArguments { host = "localhost", port = 4444 }
 
-header :: Header
-header = (hOrigin, "0.0.0.0")
-
--- options = []
 options = ["--headless"]
 
 constructConfig :: CmdArguments -> WDConfig
@@ -33,7 +29,7 @@ constructConfig s = useBrowser
     defaultConfig { wdHost           = host s
                   , wdPort           = port s
                   , wdHTTPRetryCount = 50
-                  , wdRequestHeaders = [header]
+                  , wdRequestHeaders = [(hOrigin, "0.0.0.0")]
                   }
     where chr = chrome { chromeOptions = options }
 
