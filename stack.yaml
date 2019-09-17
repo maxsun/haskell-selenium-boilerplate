@@ -44,7 +44,9 @@ extra-deps:
   - text-1.2.3.0@sha256:6055a7058e15b83d121b83f95e0a9092f6394f4607efb5eddeb95eb2897cdeee,8507
   - aeson-1.4.2.0@sha256:8166752a9669597db375343df19805069595fed9c613f98504e418849f40fe18,7007
   - th-abstraction-0.2.11.0@sha256:5c286870277705796887d0cbfa48a6aa5e0f206152592a54fbc550d8ce0c5ab5,1827
-# Override default flag values for local packages and extra-deps
+  - datetime-sb-0.2.4@sha256:dcd9550de06b1c9646be57993848990bf0f0874c2bdac8357bf65d0e69006322,1541
+
+  # Override default flag values for local packages and extra-deps
 # flags: {}
 
 # Extra package databases containing global packages

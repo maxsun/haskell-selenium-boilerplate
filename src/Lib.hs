@@ -51,7 +51,7 @@ searchHashtag query = do
                 "//*[@id='react-root']/section/nav/div[2]/div/div/div[2]/input"
             )
         >>= sendKeys ("#" <> query <> "\n")
-    waitUntil 30 $ findElem (ByCSS ".coreSpriteSearchClear")
+    waitUntil 30 $ findElem (ByXPath "//div[@role='dialog']/following-sibling::div//a")
     findElem (ByXPath "//div[@role='dialog']/following-sibling::div//a[1]")
         >>= click
     waitWhile 30 $ findElem (ByXPath "//div[@role='dialog']")
@@ -83,8 +83,15 @@ maybeFindElemFrom elem selector =
     handler ex = return Nothing
 
 
+getTextSafe :: Element -> WD Text
+getTextSafe elem = (waitUntil 1 (expectNotStale elem) >>= getText) `catch` handler
+  where
+    handler :: FailedCommand -> WD Text
+    handler e = error "Failed to get text!"
+
+
 maybeGetText :: Maybe Element -> WD Text
-maybeGetText (Just elem) = getText elem
+maybeGetText (Just elem) = getTextSafe elem
 maybeGetText Nothing     = return empty
 
 
@@ -97,6 +104,7 @@ maybeParseDateTime :: Maybe Text -> Maybe UTCTime
 maybeParseDateTime (Just t) =
     parseTimeM True defaultTimeLocale "%Y-%m-%dT%H:%M:%S%QZ" (unpack t)
 maybeParseDateTime Nothing = Nothing
+
 
 maybeAttr :: Maybe Element -> Text -> WD Text
 maybeAttr Nothing     _ = return empty
@@ -153,7 +161,7 @@ readPost url = do
     likes <-
         maybeFindElem (ByXPath "//button[contains(., 'like')]/span") >>= maybeGetText
     username <-
-        findElem (ByXPath "//header//a[text()=@title=@href]") >>= getText
+        findElem (ByXPath "//header//a[text()=@title=@href]") >>= getTextSafe
     caption <-
         maybeFindElem
                 (ByXPath
