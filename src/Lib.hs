@@ -2,9 +2,14 @@
 
 module Lib
     ( constructConfig
-    , searchHashtag
-    , readPost
-    , readPostComments
+    -- , readPostComments
+    , maybeFindElem
+    , maybeFindElems
+    , maybeFindElemFrom
+    , maybeAttr
+
+    , getTextSafe
+    , parseIntFromText
     )
 where
 
@@ -29,6 +34,11 @@ import           Test.WebDriver.Exceptions
 import           Test.WebDriver.JSON
 import           Test.WebDriver.Session
 import           Text.Read
+import           Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
+-- import           Control.Monad.Trans (MaybeT)
+
+parseIntFromText :: Text -> Maybe Int
+parseIntFromText s = readMaybe (Prelude.filter isDigit $ unpack s) :: Maybe Int
 
 -- options = ["--headless"]
 options = []
@@ -43,129 +53,50 @@ constructConfig host port = useBrowser
                   }
     where chr = chrome { chromeOptions = options }
 
-searchHashtag :: Text -> WD [Text]
-searchHashtag query = do
-    openPage "https://www.instagram.com/directory/hashtags/"
-    findElem
-            (ByXPath
-                "//*[@id='react-root']/section/nav/div[2]/div/div/div[2]/input"
-            )
-        >>= sendKeys ("#" <> query <> "\n")
-    waitUntil 30 $ findElem (ByXPath "//div[@role='dialog']/following-sibling::div//a")
-    findElem (ByXPath "//div[@role='dialog']/following-sibling::div//a[1]")
-        >>= click
-    waitWhile 30 $ findElem (ByXPath "//div[@role='dialog']")
-    waitUntil 30 $ findElem (ByXPath "//article")
-    postLinks <- findElems (ByXPath "//article/descendant::a")
-        >>= mapM (`attr` "href")
-    return $ Prelude.map fromJust postLinks
 
-
-maybeFindElem :: Selector -> WD (Maybe Element)
+maybeFindElem :: Selector -> MaybeT WD Element
 maybeFindElem selector = maybeFindElem' selector `catch` handler
   where
-    maybeFindElem' :: Selector -> WD (Maybe Element)
-    maybeFindElem' selector = do
-        x <- findElem selector
-        return $ Just x
-    handler :: FailedCommand -> WD (Maybe Element)
-    handler ex = return Nothing
+    maybeFindElem' :: Selector -> MaybeT WD Element
+    maybeFindElem' selector = MaybeT $ do
+        elem <- findElem selector
+        return $ Just elem
+    handler :: FailedCommand -> MaybeT WD Element
+    handler ex = MaybeT $ return Nothing
 
-maybeFindElemFrom :: Element -> Selector -> WD (Maybe Element)
-maybeFindElemFrom elem selector =
-    maybeFindElemFrom' elem selector `catch` handler
+
+maybeFindElems :: Selector -> MaybeT WD [Element]
+maybeFindElems selector = maybeFindElems' selector `catch` handler
   where
-    maybeFindElemFrom' :: Element -> Selector -> WD (Maybe Element)
-    maybeFindElemFrom' elem selector = do
-        x <- findElemFrom elem selector
-        return $ Just x
-    handler :: FailedCommand -> WD (Maybe Element)
-    handler ex = return Nothing
+    maybeFindElems' :: Selector -> MaybeT WD [Element]
+    maybeFindElems' selector = MaybeT $ do
+        elem <- findElems selector
+        return $ Just elem
+    handler :: FailedCommand -> MaybeT WD [Element]
+    handler ex = MaybeT $ return Nothing
 
 
-getTextSafe :: Element -> WD Text
+maybeFindElemFrom :: Element -> Selector -> MaybeT WD Element
+maybeFindElemFrom root selector = maybeFindElemFrom' root selector `catch` handler
+  where
+    maybeFindElemFrom' :: Element -> Selector -> MaybeT WD Element
+    maybeFindElemFrom' r s = MaybeT $ do
+        elem <- findElemFrom r s
+        return $ Just elem
+    handler :: FailedCommand -> MaybeT WD Element
+    handler ex = MaybeT $ return Nothing
+
+
+maybeAttr :: Element -> Text -> MaybeT WD Text
+maybeAttr elem a = MaybeT $ attr elem a
+
+getTextSafe :: Element -> MaybeT WD Text
 getTextSafe elem = (waitUntil 1 (expectNotStale elem) >>= getText) `catch` handler
   where
-    handler :: FailedCommand -> WD Text
-    handler e = error "Failed to get text!"
+    getTextSafe' :: Element -> MaybeT WD Text
+    getTextSafe' e = MaybeT $ do
+        text <- waitUntil 1 (expectNotStale e) >>= getText
+        return $ Just text
+    handler :: FailedCommand -> MaybeT WD Text
+    handler ex = MaybeT $ return Nothing
 
-
-maybeGetText :: Maybe Element -> WD Text
-maybeGetText (Just elem) = getTextSafe elem
-maybeGetText Nothing     = return empty
-
-
-parseIntFromText :: Text -> Maybe Int
-parseIntFromText s = readMaybe (Prelude.filter isDigit $ unpack s) :: Maybe Int
-
--- let timeFromString = readTime defaultTimeLocale "%d %b %Y %l:%M %p" dateString :: UTCTime
-
-maybeParseDateTime :: Maybe Text -> Maybe UTCTime
-maybeParseDateTime (Just t) =
-    parseTimeM True defaultTimeLocale "%Y-%m-%dT%H:%M:%S%QZ" (unpack t)
-maybeParseDateTime Nothing = Nothing
-
-
-maybeAttr :: Maybe Element -> Text -> WD Text
-maybeAttr Nothing     _ = return empty
-maybeAttr (Just elem) a = fmap maybeAttr' (attr elem a)
-  where
-    maybeAttr' :: Maybe Text -> Text
-    maybeAttr' (Just t) = t
-    maybeAttr' Nothing  = empty
--- Link, Username, # Likes
-data Post = Post {link :: Text, username2 :: Text, numLikes2 :: Maybe Int, caption :: Text}
-    deriving (Show)
-
-
-data Comment = Comment {
-    text       :: Text,
-    username   :: Text,
-    datePosted :: Maybe UTCTime,
-    post       :: Text,
-    likes      :: Maybe Int
-} deriving (Show)
-
-
-parseComment :: Element -> WD Comment
-parseComment elem = do
-    text     <- findElemFrom elem (ByTag "span") >>= getText
-    username <- findElemFrom elem (ByCSS "h2, h3") >>= getText
-    dateElem <- maybeFindElemFrom elem (ByTag "time")
-    dateText <- maybeAttr dateElem "datetime"
-    likes    <-
-        maybeFindElemFrom elem (ByXPath "//button[contains(text(), 'like')]")
-            >>= maybeGetText
-    postUrl <- getCurrentURL
-    return $ Comment text
-                     username
-                     (maybeParseDateTime (Just dateText))
-                     (pack postUrl)
-                     (parseIntFromText likes)
-
-
-readPostComments :: Text -> WD [Comment]
-readPostComments url = do
-    openPage $ unpack url
-    posterUsername <-
-        findElem (ByXPath "//header//a[text()=@title=@href]") >>= getText
-    commentElems <- findElems
-        (ByXPath "//header/following-sibling::div[2]/div//li[@role='menuitem']")
-    comments <- mapM parseComment commentElems
-    return $ Prelude.filter (\c -> username c /= posterUsername) comments
-
-
-readPost :: Text -> WD Post
-readPost url = do
-    openPage $ unpack url
-    likes <-
-        maybeFindElem (ByXPath "//button[contains(., 'like')]/span") >>= maybeGetText
-    username <-
-        findElem (ByXPath "//header//a[text()=@title=@href]") >>= getTextSafe
-    caption <-
-        maybeFindElem
-                (ByXPath
-                    "//h2//a[text()=@title=@href]/../following-sibling::span"
-                )
-            >>= maybeGetText
-    return $ Post url username (parseIntFromText likes) caption

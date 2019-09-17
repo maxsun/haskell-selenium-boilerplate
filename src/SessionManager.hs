@@ -1,13 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module SessionManager
-    ( startSession
-    -- , closeAllSessions
-    , getSessionsWithStatus
-    , runWithOpenSession
-    -- , Status(..)
-    , SessionMap(..),
-    newSessionMap
+    ( newSafeSession
+    , runSafeSession
     )
 where
 
@@ -33,93 +28,58 @@ import           Data.Maybe                     ( fromJust )
 import           Control.Concurrent.STM
 import           Data.Typeable                  ( Typeable )
 import Control.Monad (unless)
+import           Control.Monad.Trans.Maybe (runMaybeT, MaybeT(..))
 
 
-data Status = Running | Stopped | Crashed
+
+data Status = Available | Busy
     deriving (Eq, Show, Typeable)
 
-type SessionWithStatus = (WDSession, Status)
-newtype SessionMap = SessionMap (TVar (Map Text SessionWithStatus))
 
-newSessionMapSTM :: STM SessionMap
-newSessionMapSTM = do
-    v <- newTVar Map.empty
-    return (SessionMap v)
+type SafeSession = (TVar WDSession, TVar Status)
 
-newSessionMap :: IO SessionMap
-newSessionMap = atomically newSessionMapSTM
-
-insertSession :: SessionMap -> Text -> SessionWithStatus -> STM Text
-insertSession (SessionMap sm) sessionId sess = do
-    map <- readTVar sm
-    writeTVar sm $ Map.insert sessionId sess map
-    return sessionId
+newSafeSessionSTM :: WDSession -> STM SafeSession
+newSafeSessionSTM sess = do
+    sessT <- newTVar sess
+    statT <- newTVar Available
+    return (sessT, statT)
 
 
--- startSessionSTM :: SessionMap -> WDConfig -> STM Text
--- startSessionSTM state config = do
---     sess <- runSession config getSession
---     case wdSessId sess of
---         (Just sid) -> insertSession state (pack $ show sid) (sess, Stopped)
---         Nothing    -> throwSTM $ NoSessionId "Failed to start a session!"
-
-startSession :: SessionMap -> WDConfig -> IO Text
-startSession state conf = do
-    sess <- runSession conf getSession
-    atomically $
-        case wdSessId sess of
-            (Just sid) -> insertSession state (pack $ show sid) (sess, Stopped)
-            Nothing    -> throwSTM $ NoSessionId "Failed to start a session!"
-
--- closeAllSessions :: SessionManagerState -> IO ()
--- closeAllSessions (SessionManagerState m) = do
---     manager <- readTVarIO m
---     mapM_ ((`runWD` closeSession) . fst) manager
---     atomically $ writeTVar m manager
+newSafeSession :: WDSession -> IO SafeSession
+newSafeSession sess = atomically $ newSafeSessionSTM sess
 
 
-toList :: SessionMap -> STM [(Text, SessionWithStatus)]
-toList (SessionMap sm) = do
-    m <- readTVar sm
-    writeTVar sm m
-    return $ Map.toList m
+status :: SafeSession -> STM Status
+status (_, statusT) = readTVar statusT
 
 
-check :: Bool -> STM ()
-check b =  Control.Monad.unless b retry
+session :: SafeSession -> STM WDSession
+session (sessT, _) = readTVar sessT
 
 
-getSessionsWithStatusSTM :: SessionMap -> Status -> STM [WDSession]
-getSessionsWithStatusSTM state status = do
-    allSessions <- toList state
-    SessionManager.check $ not (null allSessions)
-    return $ map (fst . snd) $ filter (\x -> snd (snd x) == status) allSessions
- 
+updateStatus :: SafeSession -> Status -> STM ()
+updateStatus (_, statusT) = writeTVar statusT
 
-getSessionsWithStatus :: SessionMap -> Status -> IO [WDSession]
-getSessionsWithStatus sm status = atomically $ getSessionsWithStatusSTM sm status
-
-
--- updateSessionStatus :: SessionMap -> Text -> Status -> STM (Maybe Status)
--- updateSessionStatus (SessionMap sm) sid newStatus = do
---     m <- readTVar sm
---     maybeSession <- atomically $ Map.lookup sid m
---     case maybeSession of
---         Nothing -> do
---             throwSTM $ NoSessionId "Failed to update a session status!"
---             Nothing
---         (Just (session, status)) -> do
---             writeTVar sm (Map.insert sid (session, newStatus))
---             Just newStatus
+    
+waitFor :: SafeSession -> IO ()
+waitFor (_, statusT) = atomically $ do
+  st <- readTVar statusT
+  check (st == Available)
 
 
-runWithOpenSession :: SessionMap -> WD a -> IO a
-runWithOpenSession state wd = do
-    stoppedSessions <- atomically $ getSessionsWithStatusSTM state Stopped
-    let openSession    = head stoppedSessions
-    let maybeSessionId = wdSessId openSession
-    let sid            = pack . show . fromJust $ maybeSessionId
-    atomically $ insertSession state sid (openSession, Running)
-    result <- runWD openSession wd
-    atomically $ insertSession state sid (openSession, Stopped)
-    return result
+runSafeSession :: SafeSession -> MaybeT WD a -> IO (Maybe a)
+runSafeSession ss wd = do
+    sess <- waitFor ss >> atomically (session ss)
+    atomically $ updateStatus ss Busy
+    result <- runWD sess $ runMaybeT wd
+    atomically $ updateStatus ss Available >> return result
+
+
+runSafeSessionRepeat :: SafeSession -> Int -> MaybeT WD a -> IO (Maybe a)
+runSafeSessionRepeat ss attempts wd
+        | attempts == 0 = return Nothing
+        | otherwise = do
+            result <- runSafeSession ss wd
+            case result of
+                Nothing -> runSafeSessionRepeat ss (attempts - 1) wd
+                (Just x) -> return $ Just x

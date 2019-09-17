@@ -21,6 +21,8 @@ dependencies:
 - async >= 2.2.2
 - stm >= 2.5.0.0
 - ttrie >= 0.1.2.1
+- transformers >= 0.5.6.2
+- extra >= 0.3.1
 name: haskell-selenium-boilerplate
 version: 0.1.0.0
 extra-source-files:
