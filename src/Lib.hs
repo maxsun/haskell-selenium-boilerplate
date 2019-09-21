@@ -90,13 +90,10 @@ maybeFindElemFrom root selector = maybeFindElemFrom' root selector `catch` handl
 maybeAttr :: Element -> Text -> MaybeT WD Text
 maybeAttr elem a = MaybeT $ attr elem a
 
+
 getTextSafe :: Element -> MaybeT WD Text
 getTextSafe elem = (waitUntil 1 (expectNotStale elem) >>= getText) `catch` handler
   where
-    getTextSafe' :: Element -> MaybeT WD Text
-    getTextSafe' e = MaybeT $ do
-        text <- waitUntil 1 (expectNotStale e) >>= getText
-        return $ Just text
     handler :: FailedCommand -> MaybeT WD Text
     handler ex = MaybeT $ return Nothing
 

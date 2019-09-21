@@ -1,8 +1,7 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module SessionManager
     ( newSafeSession
     , runSafeSession
+    , runSafeSessionRepeat
     )
 where
 
@@ -69,17 +68,16 @@ waitFor (_, statusT) = atomically $ do
 
 runSafeSession :: SafeSession -> MaybeT WD a -> IO (Maybe a)
 runSafeSession ss wd = do
-    sess <- waitFor ss >> atomically (session ss)
-    atomically $ updateStatus ss Busy
+    sess <- waitFor ss >> atomically (updateStatus ss Busy) >> atomically (session ss)
     result <- runWD sess $ runMaybeT wd
     atomically $ updateStatus ss Available >> return result
 
 
-runSafeSessionRepeat :: SafeSession -> Int -> MaybeT WD a -> IO (Maybe a)
-runSafeSessionRepeat ss attempts wd
+runSafeSessionRepeat :: SafeSession -> MaybeT WD a -> Int -> IO (Maybe a)
+runSafeSessionRepeat ss wd attempts
         | attempts == 0 = return Nothing
         | otherwise = do
             result <- runSafeSession ss wd
             case result of
-                Nothing -> runSafeSessionRepeat ss (attempts - 1) wd
+                Nothing -> runSafeSessionRepeat ss wd (attempts - 1)
                 (Just x) -> return $ Just x
