@@ -54,47 +54,55 @@ constructConfig host port = useBrowser
     where chr = chrome { chromeOptions = options }
 
 
--- maybeAttr :: Element -> Text -> MaybeT WD Text
--- maybeAttr elem a = MaybeT $ attr elem a
+data SessionManager a = SessionManager {
+    workers :: [SessionWorker a],
+    jobs :: TQueue (WD (Maybe a)),
+    results :: TQueue (Maybe a),
+    lock :: MVar ()
+}
 
 
--- testJob :: Text -> WD (Maybe Text)
--- testJob url = do
---     openPage $ unpack url
---     firstLink <- findElem (ByTag "a")
---     attr firstLink "href"
+newSessionManager :: Int -> WDConfig -> IO (SessionManager a)
+newSessionManager workersCount config = do
+    jobs     <- atomically newTQueue
+    results  <- atomically newTQueue
+    lock     <- newMVar ()
+    sessions <- forConcurrently [1 .. workersCount] (const $ runSession config getSession)
+    workers  <- forM sessions (newSessionWorker jobs results lock)
+    return $ SessionManager workers jobs results lock
 
 
--- worker :: Int -> TQueue Text -> TQueue (Maybe [Text]) -> MVar () -> WDSession -> IO (WD ())
--- worker n jobs results lock sess = forever $ do
---     j <- atomically $ readTQueue jobs
---     let sid = fromJust $ wdSessId sess
---     withMVar lock $ \_ -> putStrLn $ "worker " ++ show n ++ " processing job " ++ show j ++ " with sid: " ++ show sid
---     r <- runWD sess (runMaybeT $ searchHashtag j)
---     atomically $ writeTQueue results r
+data SessionWorker a = SessionWorker {
+    jobsW :: TQueue (WD (Maybe a)),
+    resultsW :: TQueue (Maybe a),
+    lockW :: MVar (),
+    session :: WDSession
+}
 
 
-worker
-    :: Int
-    -> TQueue Text
+workerLoop :: SessionWorker a -> IO (WD ())
+workerLoop worker = forever $ do
+    currentJob <- atomically $ readTQueue (jobsW worker)
+    let sid = fromJust $ wdSessId (session worker)
+    withMVar (lockW worker) $ \_ -> print sid
+    result <- runWD (session worker) currentJob
+    atomically $ writeTQueue (resultsW worker) result
+
+
+newSessionWorker
+    :: TQueue (WD (Maybe a))
     -> TQueue (Maybe a)
     -> MVar ()
     -> WDSession
-    -> (Text -> WD (Maybe a))
-    -> IO (WD ())
-worker n jobs results lock sess f = forever $ do
-    j <- atomically $ readTQueue jobs
-    let sid = fromJust $ wdSessId sess
-    withMVar lock $ \_ ->
-        putStrLn
-            $  "worker "
-            ++ show n
-            ++ " processing job "
-            ++ show j
-            ++ " with sid: "
-            ++ show sid
-    r <- runWD sess (f j)
-    atomically $ writeTQueue results r
+    -> IO (SessionWorker a)
+newSessionWorker jobs results lock sess = do
+    let worker = SessionWorker jobs results lock sess
+    async $ workerLoop worker
+    return worker
+
+
+addJob :: SessionManager a -> WD (Maybe a) -> IO ()
+addJob manager job = atomically $ writeTQueue (jobs manager) job
 
 
 data CmdArguments = CmdArguments {host :: Text, port :: Int}
@@ -108,48 +116,29 @@ main = do
     args      <- cmdArgs cmdArguments
     let config = constructConfig (host args) (port args)
 
-    let n      = 5
+    let n      = 2
+    manager <- newSessionManager n config
 
-    jobs     <- atomically newTQueue
-    results  <- atomically newTQueue
-    lock     <- newMVar ()
+    let toDo = [searchHashtag "saturday", searchHashtag "berkeley"]
+    forM_ toDo (addJob manager)
 
-    sessions <- forM [1 .. n] (const $ runSession config getSession)
-    print $ length sessions
+    rs <- forM toDo (const $ atomically $ readTQueue (results manager))
+    let links = concat $ catMaybes rs
+    mapM_ ((`runWD` closeSession) . session) (workers manager)
+    
+    manager2 <- newSessionManager n config
+    let postJobs = map readPost links
+    forM_ postJobs (addJob manager2)
 
-    forM_ [0 .. length sessions - 1] $ \w ->
-        async $ worker w jobs results lock (sessions !! w) searchHashtag
-    let
-        args =
-            [ "cars"
-            , "snacks"
-            , "berkeley"
-            , "moon"
-            , "nyc"
-            , "kfjgdhkjhfgdsakjfgsadlj"
-            ]
-    -- let args = ["cars"]
-    forM_ args $ atomically . writeTQueue jobs
-    l <- forM args (const $ atomically $ readTQueue results)
-
-    let links = concat $ catMaybes l
-    print $ length links
-    jobs2    <- atomically newTQueue
-    results2 <- atomically newTQueue
-    lock2    <- newMVar ()
-    forM_ [0 .. length sessions - 1] $ \w ->
-        async $ worker w jobs2 results2 lock2 (sessions !! w) readPost
-    forM_ links $ atomically . writeTQueue jobs2
-    posts <- forM links (const $ atomically $ readTQueue results2)
+    posts <- forM postJobs (const $ atomically $ readTQueue (results manager2))
     print posts
+    print $ length links
     print $ length posts
-    let justPosts = catMaybes posts
-    print $ length justPosts
-    mapConcurrently_ (`runWD` closeSession) sessions
 
+    mapM_ ((`runWD` closeSession) . session) (workers manager2)
     endTime <- getTime Monotonic
 
-    BS.writeFile "results.json" (encode justPosts)
+    BS.writeFile "results.json" (encode (catMaybes posts))
 
     putStrLn "Done."
     print (endTime - startTime)
