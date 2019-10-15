@@ -46,6 +46,13 @@ packages:
       sha256: 4e15e7ac0fed7b049dce96ba7c459cc1c0c269add5c077fca35f2bf832688a4c
   original:
     hackage: datetime-sb-0.2.4@sha256:dcd9550de06b1c9646be57993848990bf0f0874c2bdac8357bf65d0e69006322,1541
+- completed:
+    hackage: naturals-0.2.0.2@sha256:3b2784ae37d3d6da3fa0293bf3ad1e28d44aa3ed1e7ebf5926b4ffdd41c43644,1838
+    pantry-tree:
+      size: 208
+      sha256: e3cb7064e07e2497f3e18d23239aca411ca80209b7698ff9a34bd003e689ccd5
+  original:
+    hackage: naturals-0.2.0.2@sha256:3b2784ae37d3d6da3fa0293bf3ad1e28d44aa3ed1e7ebf5926b4ffdd41c43644,1838
 snapshots:
 - completed:
     size: 523884

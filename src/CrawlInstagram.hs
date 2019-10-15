@@ -56,13 +56,17 @@ data Comment = Comment {
 
 
 checkScroll :: WD ()
-checkScroll = do
-    elems <- runMaybeT $ maybeFindElems (ByXPath "//article/descendant::a")
-    if length (fromJust elems) >= 20
-        then return ()
-        else do
-            ignoreReturn $ executeJS [] "window.scrollBy(0, 200)"
-            checkScroll
+checkScroll = checkScroll' 10
+  where
+    checkScroll' :: Int -> WD ()
+    checkScroll' 0        = return ()
+    checkScroll' attempts = do
+        elems <- runMaybeT $ maybeFindElems (ByXPath "//article/descendant::a")
+        if length (fromJust elems) >= 20
+            then return ()
+            else do
+                ignoreReturn $ executeJS [] "window.scrollBy(0, 200)"
+                checkScroll' $ attempts - 1
 
 
 searchHashtag :: Text -> WD (Maybe [Text])

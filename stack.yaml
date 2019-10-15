@@ -45,6 +45,7 @@ extra-deps:
   - aeson-1.4.2.0@sha256:8166752a9669597db375343df19805069595fed9c613f98504e418849f40fe18,7007
   - th-abstraction-0.2.11.0@sha256:5c286870277705796887d0cbfa48a6aa5e0f206152592a54fbc550d8ce0c5ab5,1827
   - datetime-sb-0.2.4@sha256:dcd9550de06b1c9646be57993848990bf0f0874c2bdac8357bf65d0e69006322,1541
+  - naturals-0.2.0.2@sha256:3b2784ae37d3d6da3fa0293bf3ad1e28d44aa3ed1e7ebf5926b4ffdd41c43644,1838
 
   # Override default flag values for local packages and extra-deps
 # flags: {}
