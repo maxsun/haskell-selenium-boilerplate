@@ -6,3 +6,4 @@ results.json
 results2.json
 results3.json
 .gitignore
+.DS_Store
