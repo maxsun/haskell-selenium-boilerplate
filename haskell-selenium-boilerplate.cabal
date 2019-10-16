@@ -1,0 +1,92 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.2.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 72d0e4d4aa610fbc8e204596e239cea12e0e0a1eb9367ce2a594374d51986786
+
+name:           haskell-selenium-boilerplate
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/maxsun/haskell-selenium-boilerplate#readme>
+homepage:       https://github.com/maxsun/haskell-selenium-boilerplate#readme
+bug-reports:    https://github.com/maxsun/haskell-selenium-boilerplate/issues
+author:         Max Sun
+maintainer:     maxlouiesun@gmail.com
+copyright:      2019 Max Sun
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/maxsun/haskell-selenium-boilerplate
+
+library
+  exposed-modules:
+      CrawlInstagram
+      Lib
+      SessionManager
+  other-modules:
+      Paths_haskell_selenium_boilerplate
+  hs-source-dirs:
+      src
+  build-depends:
+      aeson >=0.6.2.0
+    , array >=0.5.3.0
+    , async >=2.2.2
+    , base >=4.7 && <5
+    , bytestring >=0.10.8.2
+    , clock
+    , cmdargs >=0.10.20
+    , containers >=0.6.0.1
+    , datetime-sb >=0.2.4
+    , dlist >=0.8.0.7
+    , exceptions >=0.10.3
+    , extra >=0.3.1
+    , formatting
+    , http-types >=0.12.3
+    , mtl >=2.2.2
+    , naturals >=0.2.0.2
+    , stm >=2.5.0.0
+    , text <=1.2.3.0
+    , time
+    , transformers >=0.5.6.2
+    , ttrie >=0.1.2.1
+    , webdriver <=0.9.0.1
+  default-language: Haskell2010
+
+executable haskell-selenium-boilerplate-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_haskell_selenium_boilerplate
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson >=0.6.2.0
+    , array >=0.5.3.0
+    , async >=2.2.2
+    , base >=4.7 && <5
+    , bytestring >=0.10.8.2
+    , clock
+    , cmdargs >=0.10.20
+    , containers >=0.6.0.1
+    , datetime-sb >=0.2.4
+    , dlist >=0.8.0.7
+    , exceptions >=0.10.3
+    , extra >=0.3.1
+    , formatting
+    , haskell-selenium-boilerplate
+    , http-types >=0.12.3
+    , mtl >=2.2.2
+    , naturals >=0.2.0.2
+    , stm >=2.5.0.0
+    , text <=1.2.3.0
+    , time
+    , transformers >=0.5.6.2
+    , ttrie >=0.1.2.1
+    , webdriver <=0.9.0.1
+  default-language: Haskell2010

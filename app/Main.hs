@@ -51,8 +51,8 @@ import qualified Lib                           as CLib
 import           Numeric.Natural                ( Natural )
 import           GHC.Natural                    ( intToNatural )
 
-options = []
--- options = ["--headless"]
+-- options = []
+options = ["--headless"]
 
 
 constructConfig :: Text -> Int -> WDConfig
@@ -108,18 +108,23 @@ main = do
     args      <- cmdArgs cmdArguments
     let config = constructConfig (host args) (port args)
 
-    sm <- newSessionManager 5 config
+    sm          <- newSessionManager 1 config
 
-    let hashtags = ["sunset", "yosemite", "berkeley"]
-    pendingLinks <- forConcurrently hashtags (smRunWDAsync sm . searchHashtag)
-    results      <- forM pendingLinks readMVar
-    let links = concat $ catMaybes results
-    print $ length links
+    pendingData <- smRunWDAsync
+        sm
+        (readPost "https://www.instagram.com/p/Bxt2jt7Fs2D/")
+    post <- readMVar pendingData
+    print $ encode post
+    -- let hashtags = ["sunset", "yosemite", "berkeley"]
+    -- pendingLinks <- forConcurrently hashtags (smRunWDAsync sm . searchHashtag)
+    -- results      <- forM pendingLinks readMVar
+    -- let links = concat $ catMaybes results
+    -- print $ length links
 
-    pendingPostResults <- forConcurrently links (smRunWDAsync sm . readPost)
+    -- pendingPostResults <- forConcurrently links (smRunWDAsync sm . readPost)
 
-    postResults        <- forM pendingPostResults readMVar
-    print $ encode (catMaybes postResults)
+    -- postResults        <- forM pendingPostResults readMVar
+    -- print $ encode (catMaybes postResults)
 
     -- BS.writeFile "results3.json" (encode (catMaybes postResults))
     closeSessionManager sm
