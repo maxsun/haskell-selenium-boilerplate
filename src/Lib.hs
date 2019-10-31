@@ -7,9 +7,9 @@ module Lib
     , maybeFindElems
     , maybeFindElemFrom
     , maybeAttr
-
     , getTextSafe
     , parseIntFromText
+    , getSourceSafe
     )
 where
 
@@ -34,7 +34,9 @@ import           Test.WebDriver.Exceptions
 import           Test.WebDriver.JSON
 import           Test.WebDriver.Session
 import           Text.Read
-import           Control.Monad.Trans.Maybe (MaybeT(..), runMaybeT)
+import           Control.Monad.Trans.Maybe      ( MaybeT(..)
+                                                , runMaybeT
+                                                )
 -- import           Control.Monad.Trans (MaybeT)
 
 parseIntFromText :: Text -> Maybe Int
@@ -77,7 +79,8 @@ maybeFindElems selector = maybeFindElems' selector `catch` handler
 
 
 maybeFindElemFrom :: Element -> Selector -> MaybeT WD Element
-maybeFindElemFrom root selector = maybeFindElemFrom' root selector `catch` handler
+maybeFindElemFrom root selector =
+    maybeFindElemFrom' root selector `catch` handler
   where
     maybeFindElemFrom' :: Element -> Selector -> MaybeT WD Element
     maybeFindElemFrom' r s = MaybeT $ do
@@ -92,8 +95,17 @@ maybeAttr elem a = MaybeT $ attr elem a
 
 
 getTextSafe :: Element -> MaybeT WD Text
-getTextSafe elem = (waitUntil 1 (expectNotStale elem) >>= getText) `catch` handler
+getTextSafe elem =
+    (waitUntil 1 (expectNotStale elem) >>= getText) `catch` handler
   where
     handler :: FailedCommand -> MaybeT WD Text
     handler ex = MaybeT $ return Nothing
+
+
+getSourceSafe :: MaybeT WD Text
+getSourceSafe = getSource `catch` handler
+  where
+    handler :: FailedCommand -> MaybeT WD Text
+    handler ex = MaybeT $ return Nothing
+
 

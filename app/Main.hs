@@ -96,10 +96,22 @@ closeSessionManager sm =
     mapM_ (`runWD` closeSession) (Map.elems $ sessionsMap sm)
 
 
-data CmdArguments = CmdArguments {host :: Text, port :: Int}
+data CmdArguments = CmdArguments {host :: Text, port :: Int, url :: Text}
     deriving (Show, Data, Typeable)
 
-cmdArguments = CmdArguments { host = "localhost", port = 4444 }
+cmdArguments = CmdArguments { host = "localhost", port = 4444, url = "" }
+
+
+readUrl :: Text -> WD (Maybe Text)
+readUrl url = do
+    openPage $ unpack url
+    -- likes <- runMaybeT
+        -- $ CLib.maybeFindElem (ByXPath "//button[contains(., 'like')]/span")
+
+    -- commentElems <- runMaybeT $ maybeFindElems
+    --     (ByXPath "//header/following-sibling::div[2]/div//li[@role='menuitem']")
+    -- comments <- mapM parseComment (fromJust commentElems)
+    runMaybeT CLib.getSourceSafe
 
 
 main :: IO ()
@@ -110,10 +122,8 @@ main = do
 
     sm          <- newSessionManager 1 config
 
-    pendingData <- smRunWDAsync
-        sm
-        (readPost "https://www.instagram.com/p/Bxt2jt7Fs2D/")
-    post <- readMVar pendingData
+    pendingData <- smRunWDAsync sm (readUrl (url args))
+    post        <- readMVar pendingData
     print $ encode post
     -- let hashtags = ["sunset", "yosemite", "berkeley"]
     -- pendingLinks <- forConcurrently hashtags (smRunWDAsync sm . searchHashtag)
@@ -128,6 +138,3 @@ main = do
 
     -- BS.writeFile "results3.json" (encode (catMaybes postResults))
     closeSessionManager sm
-    putStrLn "Done."
-    endTime <- getTime Monotonic
-    print (endTime - startTime)
